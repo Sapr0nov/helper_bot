@@ -4,11 +4,9 @@
 **/
 $SITE_DIR = dirname(__FILE__) . "/";
 require_once($SITE_DIR . 'env.php');
-require_once($SITE_DIR . 'Classes/dbController/db.class.php');
 require_once($SITE_DIR . 'Classes/tg_Bot/tg.class.php');
-
-use DB;
-use TgBotClass;
+require_once($SITE_DIR . 'Classes/dbController/db.class.php');
+require_once($SITE_DIR . 'Classes/dbController/Note.php');
 
 header('Content-Type: text/html; charset=utf-8'); // Выставляем кодировку UTF-8
 date_default_timezone_set('Europe/Moscow');
@@ -19,9 +17,12 @@ $db = new DB($DB_SERVER, $DB_USER, $DB_PASSWORD, $DB_NAME);
 
 if ($INIT) {
     $url = $_SERVER["REQUEST_SCHEME"] . "://" . $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"];
-    $res = $tgBot->register_web_hook($url);
-    $response = json_decode($res);
+    $result = $tgBot->register_web_hook($url);
+    $response = json_decode($result);
     echo $response->description;
+
+    $notes = new Note($db->MYSQLI, 'notes');
+    echo "Created table 'notes'";
     return;
 }
 
