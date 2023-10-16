@@ -7,6 +7,7 @@ require_once($SITE_DIR . 'env.php');
 require_once($SITE_DIR . 'Classes/tg_Bot/tg.class.php');
 require_once($SITE_DIR . 'Classes/dbController/db.class.php');
 require_once($SITE_DIR . 'Classes/dbController/Note.php');
+require_once($SITE_DIR . 'Classes/dbController/User.php');
 
 header('Content-Type: text/html; charset=utf-8'); // Выставляем кодировку UTF-8
 date_default_timezone_set('Europe/Moscow');
@@ -19,10 +20,12 @@ if ($INIT) {
     $url = $_SERVER["REQUEST_SCHEME"] . "://" . $_SERVER["SERVER_NAME"] . $_SERVER["REQUEST_URI"];
     $result = $tgBot->register_web_hook($url);
     $response = json_decode($result);
-    echo $response->description;
+    echo "<p>" . $response->description . "</p>";
 
-    $notes = new Note($db->MYSQLI, 'notes');
-    echo "Created table 'notes'";
+    $notes = new Note($db->MYSQLI);
+    echo "<p>" . $notes->init() . "</p>";
+    $users = new User($db->MYSQLI);
+    echo "<p>" . $users->init() . "</p>";
     return;
 }
 

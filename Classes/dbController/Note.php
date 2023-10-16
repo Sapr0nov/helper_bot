@@ -1,18 +1,20 @@
 <?php
 Class Note {
     private $MYSQLI;
-    private $TABLE;
+    private $TABLE = 'notes';
     /**
-     * id       int
-     * user_id  int
-     * title    string 
+     * id       bigint
+     * user_id  bigint
+     * title    string 255 
      * content  text
      * data_create_at datatime
-     * tags     string (example important, today, todo)
+     * tags     string 255 (example important, today, todo)
      */
-    function __construct($mysqli, $table) {
+    function __construct($mysqli) {
         $this->MYSQLI = $mysqli;
-        $this->TABLE = $table;
+    }
+
+    function init() {
         $query = "CREATE TABLE IF NOT EXISTS " . $this->TABLE . " (
             id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
             user_id bigint NOT NULL,
@@ -21,7 +23,12 @@ Class Note {
             data_create_at datetime NULL DEFAULT CURRENT_TIMESTAMP,
             tags varchar(255) NULL DEFAULT ''
         );";
-        $this->MYSQLI->query($query);
+        $result = $this->MYSQLI->query($query);
+        if (!$result) {
+            return "ошибка создания таблицы " . $this->TABLE;
+        }
+        return "Таблица " . $this->TABLE . " создана.";
+
     }
 
     function add($user_id, $title='', $content='', $tags=[] ) {
