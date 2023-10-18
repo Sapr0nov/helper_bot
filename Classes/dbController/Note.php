@@ -15,6 +15,7 @@ Class Note {
     }
 
     function init() {
+        $response = "";
         $query = "CREATE TABLE IF NOT EXISTS " . $this->TABLE . " (
             id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,
             user_id bigint NOT NULL,
@@ -23,12 +24,14 @@ Class Note {
             data_create_at datetime NULL DEFAULT CURRENT_TIMESTAMP,
             tags varchar(255) NULL DEFAULT ''
         );";
-        $result = $this->MYSQLI->query($query);
-        if (!$result) {
-            return "ошибка создания таблицы " . $this->TABLE;
+        try {
+            $this->MYSQLI->query($query);
+            $response .= "Таблиц " . $this->TABLE . " создана.\r\n";
+        } catch (Exception $e) {
+            $response .= "Ошибка создания таблицы " . $this->TABLE . "\r\n";
         }
-        return "Таблица " . $this->TABLE . " создана.";
 
+        return $response;
     }
 
     function add($user_id, $title='', $content='', $tags=[] ) {
