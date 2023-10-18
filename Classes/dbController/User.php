@@ -82,9 +82,68 @@ Class User {
         return $response;
     }
 
-    function add($tid, $username='', $first_name='', $last_name='', $status=0 ) {
+    /**
+     *  return int user_id || null
+     */
+    function add($tid, $username='', $first_name='', $last_name='', $status = 0 ) {
+        if ($this->checkUser($tid)) {
+            return $this->checkUser($tid);
+        }
 
+        $query = "INSERT INTO `" . $this->TABLE 
+        . "` (`tid`,`first_name`,`last_name`,`username`)" 
+        . "VALUES(" . $tid . ", '" . $first_name . "','" . $last_name . "','" . $username . "' );";
+        try {
+            $this->MYSQLI->query($query);
+            $result = $this->MYSQLI->insert_id;;
+        }catch(Exception $e) {
+            return null;
+        }
+        if (!$result) {
+            return null;
+        }
+        return $result;
+    }
+
+
+    /**
+     *  return int user_id || null
+     */
+    function checkUser($tid) {
+        $response = null;
+        $query = "SELECT `id` FROM `" . $this->TABLE 
+        . "` WHERE `tid` = " . $tid;
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            $result = false;
+        }
+        if (!$result) {
+            return null;
+        }
+        $obj = $result->fetch_object();
+        $response = $obj->id;
+        $result->close();
+        unset($obj);
+
+        return $response;
+     }
+     
+    /**
+     *  return object {"code":int,"value":string} || null
+     */
+    function getStatus($uid) {
+        $response = null;
+        $query = "SELECT `status` FROM `" . $this->TABLE 
+        . "` INNER JOIN `" . $this->TABLE_STATUS 
+        . "` ON . `" . $this->TABLE . "`.`status` = `" . $this->TABLE_STATUS . "`.`id` "
+        . " WHERE `id` = " . $uid;
+        //$this->MYSQLI->query($query);
+        $response = $query;
+        return $response;
     }
 }
+
+
 
 ?>

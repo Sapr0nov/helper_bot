@@ -1,17 +1,22 @@
 <?php
-(isset($LANG)) ? $LANG : 'ru';
+$TEST = 'test';
+$LANG = isset($LANG) ? $LANG : 'ru';
 if ($LANG == 'ru') {
-    $ERROR["err"] = "Ошибка:";
+    $ERROR['err'] = "Ошибка:";
     
-    $BTNS['startGame'] = "Начать";
+    $BTNS['start'] = "Начать";
+
+    $MENU1['search'] = "Найти";
+    $MENU1['add_note'] = "Добавить заметку";
+    $MENU1['remove_note'] = "Удалить заметку";
 
     $RETURNTXT['selectAction'] = "Выберите действие:";
 }
 
 if ($LANG == 'en') {
-    $ERROR["err"] = "Error:";
+    $ERROR['err'] = "Error:";
 
-    $BTNS['startGame'] = "Start";
+    $BTNS['start'] = "Start";
 
     $RETURNTXT['selectAction'] = "Select an action:";
 }
