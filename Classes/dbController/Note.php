@@ -34,9 +34,39 @@ Class Note {
         return $response;
     }
 
-    function add($user_id, $title='', $content='', $tags=[] ) {
-
+    function add($user_id, $str) {
+        $title=''; 
+        $content=$str; 
+        $tags=[];
+        $query = "INSERT INTO " . $this->TABLE . " (user_id, title, content, tags) VALUES (" . $user_id . ", '" . $title . "', '" . $content . "', '" . json_encode($tags) . "');";
+        try {
+            $this->MYSQLI->query($query);
+        } catch (Exception $e) {
+            return false;
+        }
+        return true;
     }
+
+
+    function search($user_id, $str) {
+         $search_str = $this->MYSQLI->real_escape_string($str);
+        // $query = sprintf("SELECT * FROM `%1$s` WHERE `user_id` = '%2$d' AND ( CONVERT(`title` USING utf8) LIKE '%%%3$s%%' OR CONVERT(`content` USING utf8) LIKE '%%%3$s%%' OR CONVERT(`tags` USING utf8) LIKE '%%%3$s%%'');",
+        //  $this->TABLE, $user_id, $search_str);
+        $query = "SELECT `id` as note_id, title, content, data_create_at as date, tags FROM `" . $this->TABLE . "`"
+        . " WHERE `user_id` = '" . $user_id . "' AND ( CONVERT(`title` USING utf8) LIKE '%" . $search_str . "%' OR CONVERT(`content` USING utf8) LIKE '%" . $search_str . "%' OR CONVERT(`tags` USING utf8) LIKE '%" . $search_str . "%') ";
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            $result = false;
+        }
+        if (!$result) {
+            return null;
+        }
+        $array = $result->fetch_all(MYSQLI_ASSOC);
+        $result->close();
+        return $array;     
+    }
+
 }
 
 ?>

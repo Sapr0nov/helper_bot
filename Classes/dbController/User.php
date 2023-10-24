@@ -29,6 +29,9 @@ Class User {
         $this->MYSQLI = $mysqli;
     }
 
+    /**
+     * create all tables
+     */
     function init() {
         $response = "";
         $query = "CREATE TABLE IF NOT EXISTS " . $this->TABLE . " (
@@ -64,6 +67,9 @@ Class User {
             $response .= "Ошибка создания таблицы " . $this->TABLE_MSGS . "\r\n";
         }
 
+        $query = "DROP TABLE IF EXISTS " . $this->TABLE_STATUS . ";";
+        $this->MYSQLI->query($query);
+
         $query = "CREATE TABLE IF NOT EXISTS " . $this->TABLE_STATUS . " (
             id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
             status varchar(255) NULL DEFAULT ''
@@ -76,7 +82,7 @@ Class User {
             $response .= "Ошибка создания таблицы " . $this->TABLE_STATUS . "\r\n";
         }
         
-        $query = "INSERT INTO " . $this->TABLE_STATUS . " (`id`,`status`) VALUES(0,'гость')";
+        $query = "INSERT INTO " . $this->TABLE_STATUS . " (`id`,`status`) VALUES(0,'main_menu')";
         $this->MYSQLI->query($query);
 
         return $response;
@@ -95,7 +101,7 @@ Class User {
         . "VALUES(" . $tid . ", '" . $first_name . "','" . $last_name . "','" . $username . "' );";
         try {
             $this->MYSQLI->query($query);
-            $result = $this->MYSQLI->insert_id;;
+            $result = $this->MYSQLI->insert_id;
         }catch(Exception $e) {
             return null;
         }
@@ -133,14 +139,73 @@ Class User {
      *  return object {"code":int,"value":string} || null
      */
     function getStatus($uid) {
-        $response = null;
-        $query = "SELECT `status` FROM `" . $this->TABLE 
+        $query = "SELECT `" . $this->TABLE . "`.`status` as 'code', `" . $this->TABLE_STATUS . "`.`status` as 'value' FROM `" . $this->TABLE 
         . "` INNER JOIN `" . $this->TABLE_STATUS 
         . "` ON . `" . $this->TABLE . "`.`status` = `" . $this->TABLE_STATUS . "`.`id` "
-        . " WHERE `id` = " . $uid;
-        //$this->MYSQLI->query($query);
-        $response = $query;
+        . " WHERE `" . $this->TABLE . "`.`id` = " . $uid;
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return null;
+        }
+        $response = $result->fetch_object();
+
         return $response;
+    }
+
+
+    /**
+    *  status - int or text
+    *  return object {"code":int,"value":string} || null
+    */
+    function setStatus($uid, $status) {
+
+        if (is_int($status)) {
+            $statusObject = $this->checkStatus($status);
+        }elseif(is_string($status)) {
+            $statusObject = $this->checkStatus(null, $status);
+        }else {
+            return null;
+        }
+        if (is_null($statusObject)) {
+            return null;
+        }
+
+        $query = "UPDATE `" . $this->TABLE . "` SET `status` = " . $statusObject->code . " WHERE `id` = '" . $uid . "'";
+        try {
+            $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return null;
+        }
+
+        return $statusObject;
+    }
+
+
+    private function checkStatus($sid = null, $status = null) {
+        $query = "SELECT `id` as 'code', `status` as 'value' FROM `" . $this->TABLE_STATUS . "`"
+        . " WHERE ";
+
+        if (!is_null($sid)) {
+            $query .= "`id` = " . $sid;
+        }
+
+        if (!is_null($status)) {
+            if (!is_null($sid)) {
+                $query .= " AND `status` = '" .$status . "'";
+            }
+            $query .= "`status` = '" .$status . "'";
+        }
+
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return null;
+        }
+        $response = $result->fetch_object();
+
+        return $response;
+
     }
 }
 
