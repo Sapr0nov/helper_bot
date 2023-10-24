@@ -41,7 +41,13 @@ class TgBotClass
             $this->MSG_INFO['from_username'] = isset($this->DATA["message"]["from"]['username']) ? $this->DATA["message"]["from"]['username'] : "";
             $this->MSG_INFO['type'] = $this->DATA["message"]["chat"]['type'];
             $this->MSG_INFO['text'] = $this->DATA['message']["text"];
-            $this->MSG_INFO['date'] = $this->DATA['message']["date"];       
+            $this->MSG_INFO['date'] = $this->DATA['message']["date"];
+            $this->MSG_INFO['test'] = $this->DATA['message'];
+            $this->MSG_INFO['entities'] = $this->DATA['message']['entities'];
+            // если есть спец разметка приводим ее в виде html
+            if ($this->DATA['message']['entities']) {
+                $this->MSG_INFO['text_html'] = $this->convertEntities($this->DATA['message']['text'], $this->DATA['message']['entities']); 
+            }
         }
         // если был ответ под кнопкой
         if (isset($this->DATA['callback_query'])) {
@@ -126,6 +132,35 @@ class TgBotClass
         return json_encode(array(
             'inline_keyboard' => $arr,
         ));
+    }
+
+
+    private function convertEntities(string $str, array $arr): string {
+        $result_str = $str;
+        $arr_string = mb_str_split($str, 1);
+
+        $arr = array_reverse($arr);
+        foreach ($arr as $value) {
+            $offset = $value["offset"];
+            $length = $value["length"];
+            $type_switch = $value["type"];
+            $type = match ($type_switch) {
+                'bold' => array("<b>","</b>"),
+                'italic' => array("<i>","</i>"),
+                'code' => array("<code>","</code>"),
+                'pre' => array("<pre>","</pre>"),
+                'underline' => array("<u>","</u>"),
+                'strikethrough' => array("<s>","</s>"),
+                'spoiler' => array("<span class=\"tg-spoiler\">","</span>"),
+                'url' => array("<a>","</a>"), 
+            };
+
+            array_splice($arr_string, $offset + $length, 0, $type[1]);
+            array_splice($arr_string, $offset, 0, $type[0]);
+        }
+        $result_str = implode('', $arr_string);
+
+        return $result_str;
     }
 }
 ?>

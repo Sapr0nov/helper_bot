@@ -47,13 +47,14 @@ $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], " Debug статус : " . json_e
 if ($status->value == "search") {
     $users->setStatus($uid, 'main_menu');
     $finded = $notes->search($uid, $tgBot->MSG_INFO['text']);
+    // выводим найденные результаты
     foreach ($finded as $key => $value) {
-        $title = "<b>".$value["title"]."</b>";
+        $title = "<b>".$value["title"]."</b>\r\n";
         $content = $value["content"];
         $tags = $value["tags"];
         $date = $value["date"];
         $note_id = $value["note_id"];
-        $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], ($key+1) . ": " . $title . $content);
+        $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], ($key+1) . ": " . $title . "\r\n" . $content);
     }
 
     return;
@@ -61,8 +62,8 @@ if ($status->value == "search") {
 
    
 if ($status->value == "add_note") {
- //   $notes->add($uid, $tgBot->MSG_INFO['text']);
-    $users->setStatus($uid,'main_menu');
+    $users->setStatus($uid, 'main_menu');
+    $notes->add($uid, $tgBot->MSG_INFO['text_html']);
     $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], "Принято возвращаемся в главное меню: ", $tgBot->keyboard([[ $MENU1['search'], $MENU1['add_note'] ]]));
     return;
 }
@@ -71,12 +72,13 @@ if ($status->value == "add_note") {
 if ($tgBot->MSG_INFO["msg_type"] == 'message')  {
     if($tgBot->MSG_INFO['text'] == $MENU1['search']) {
         $users->setStatus($uid, 'search');
-        $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], "Укажите что ищем: ");
+        $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], "Укажите что ищем: ",$tgBot->keyboard([[ $MENU1['search'], $MENU1['add_note'] ]]));
         return;
     };
 
     if($tgBot->MSG_INFO['text'] == $MENU1['add_note']) {
         $users->setStatus($uid,'add_note');
+        $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], "Введите текст заметки: ",$tgBot->keyboard([[ $MENU1['search'], $MENU1['add_note'] ]]));
         return;
     };
 
@@ -84,6 +86,6 @@ if ($tgBot->MSG_INFO["msg_type"] == 'message')  {
 }
 
 $tgBot->msg_to_tg($tgBot->MSG_INFO["chat_id"], " Menu default действие: ", $tgBot->keyboard([[ $MENU1['search'], $MENU1['add_note'] ]]));
-//$tgBot->delete_msg_tg($tgBot->MSG_INFO["chat_id"], $tgBot->MSG_INFO["message_id"]);
+$tgBot->delete_msg_tg($tgBot->MSG_INFO["chat_id"], $tgBot->MSG_INFO["message_id"]);
 
 ?>
