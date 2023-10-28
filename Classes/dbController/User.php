@@ -231,8 +231,8 @@ Class User {
 /**
      *  return boolean
      */
-    function msgs_clear($tgBot) {
-        $query = "SELECT `msg_id` FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = '" . $tgBot->MSG_INFO['chat_id'] . "'";        
+    function msgs_clear($tgBot, $users, $uid) {
+        $query = "SELECT `msg_id` FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = '" . $uid . "'";        
         try {
             $result = $this->MYSQLI->query($query);
         }catch(Exception $e) {
@@ -245,16 +245,59 @@ Class User {
         $rows = array_reverse($rows);
         foreach ($rows as $row) {
             //удаляем сообщения из чата
-            $tgBot->delete_msg_tg($tgBot->MSG_INFO['chat_id'], $row['msg_id']);
+            $tgBot->delete_msg_tg($uid, $row['msg_id']);
         }
-        
+        $reply = $tgBot->msg_to_tg($uid, "Жду приказаний \xF0\x9F\x98\x8A", silent: true);
+
         // удаляем сообщаения из таблицы
-        $query = "DELETE FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = '" . $tgBot->MSG_INFO['chat_id'] . "'";
+        $query = "DELETE FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = '" . $uid . "'";
         $this->MYSQLI->query($query); 
+
+        // сохраняем свое приветственное сообщение
+        $this->save_reply($users, $reply);
 
         return true;
     }
 
+    /**
+     * return array ids of users
+     */
+    function all_usersId() {
+        $query = "SELECT `tid` FROM `" . $this->TABLE . "` WHERE '1' = '1'";        
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return false;
+        }
+        if (!$result) {
+            return false;
+        }
+        $rows = $result->fetch_all(MYSQLI_ASSOC);
+        return $rows;
+    }
 
+    /**
+     * return int - amount messages of user
+     */
+    function checkMsgs($tid) {
+        $query = "SELECT COUNT(`id`) as messages FROM `" . $this->TABLE_MSGS . "` WHERE `user_id` = " . $tid . ";";        
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return false;
+        }
+        if (!$result) {
+            return false;
+        }
+        $row = $result->fetch_object();
+        return $row->messages;
+
+    }
+
+    function save_reply($users, $reply) {
+        $replyTgBot = new TgBotClass('');
+        $replyTgBot->get_data($reply);
+        $users->msg_save($replyTgBot->MSG_INFO);
+    }
 }
 ?>

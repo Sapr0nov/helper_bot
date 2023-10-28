@@ -14,7 +14,6 @@ header('Content-Type: text/html; charset=utf-8'); // Выставляем код
 date_default_timezone_set('Europe/Moscow');
 
 $tgBot = new TgBotClass($BOT_TOKEN);
-
 $db = new DB($DB_SERVER, $DB_USER, $DB_PASSWORD, $DB_NAME);
 
 // Start onece when installing bot (create tables and register webhook)
@@ -74,7 +73,7 @@ if ($tgBot->MSG_INFO['command']['is_command'])  {
     if ($tgBot->MSG_INFO['command']['command'] == 'clear') {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Очищаем историю. Подождите...', $keyboard['menu_search']);
         save_reply($users, $reply);
-        $ids = $users->msgs_clear($tgBot);
+        $users->msgs_clear($tgBot, $users, $tgBot->MSG_INFO['chat_id']);
         return;
     }
 

@@ -83,7 +83,7 @@ class TgBotClass
 
 
     // функция отправки сообщени от бота в диалог с юзером
-    function msg_to_tg($chat_id, $text, $reply_markup = '') {
+    function msg_to_tg($chat_id, $text, $reply_markup = '', $silent = false) {
 
         $ch = curl_init();
         $ch_post = [
@@ -96,6 +96,7 @@ class TgBotClass
                 'parse_mode' => 'HTML',
                 'text' => $text,
                 'reply_markup' => $reply_markup,
+                'disable_notification' => $silent
             ]
         ];
 
