@@ -7,11 +7,12 @@ Class Notice {
      * user_id  bigint
      * title    string 255 
      * content  text
-     * data_create_at datatime
-     * tags     string 255 (example important, today, todo)
+     * date_remind datatime
+     * status   string 100
      */
     function __construct($mysqli) {
         $this->MYSQLI = $mysqli;
+        date_default_timezone_set('Europe/Moscow');
     }
 
     function init() {
@@ -21,12 +22,12 @@ Class Notice {
             user_id bigint NOT NULL,
             title varchar(255) NULL DEFAULT '',
             content text NULL,
-            data_create_at datetime NULL DEFAULT CURRENT_TIMESTAMP,
-            tags varchar(255) NULL DEFAULT ''
+            date_remind datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            status varchar(100) NULL DEFAULT ''
         );";
         try {
             $this->MYSQLI->query($query);
-            $response .= "Таблиц " . $this->TABLE . " создана.\r\n";
+            $response .= "Таблица " . $this->TABLE . " создана.\r\n";
         } catch (Exception $e) {
             $response .= "Ошибка создания таблицы " . $this->TABLE . "\r\n";
         }
@@ -34,11 +35,30 @@ Class Notice {
         return $response;
     }
 
-    function add($user_id, $str) {
-        $title=''; 
-        $content=$str; 
-        $tags=[];
-        $query = "INSERT INTO " . $this->TABLE . " (user_id, title, content, tags) VALUES (" . $user_id . ", '" . $title . "', '" . $content . "', '" . json_encode($tags) . "');";
+
+    function presave($user_id, $text) {
+        $title = '';
+        $content = $text;
+        $query = "DELETE FROM `" . $this->TABLE . "` WHERE `status` = 'draft';";
+        try {
+            $this->MYSQLI->query($query);
+        } catch (Exception $e) {
+            return false;
+        }
+
+        $query = "INSERT INTO `" . $this->TABLE . "` (user_id, title, content, status) VALUES (" . $user_id . ", '" . $title . "', '" . $content . "', 'draft');";
+        try {
+            $this->MYSQLI->query($query);
+        } catch (Exception $e) {
+            return false;
+        }
+        return true;
+    }
+
+    function add($user_id, $date) {
+        $date_str = (intval($date) == $date) ? date('Y-m-d H:i:00', time() + $date * 60) : $date;
+        $query = "UPDATE `" . $this->TABLE . "` SET `status` = 'active', `date_remind` = '" . $date_str . "' " .
+        " WHERE `user_id` = " . $user_id . " AND `status` = 'draft';";
         try {
             $this->MYSQLI->query($query);
         } catch (Exception $e) {
@@ -50,8 +70,6 @@ Class Notice {
 
     function search($user_id, $str) {
          $search_str = $this->MYSQLI->real_escape_string($str);
-        // $query = sprintf("SELECT * FROM `%1$s` WHERE `user_id` = '%2$d' AND ( CONVERT(`title` USING utf8) LIKE '%%%3$s%%' OR CONVERT(`content` USING utf8) LIKE '%%%3$s%%' OR CONVERT(`tags` USING utf8) LIKE '%%%3$s%%'');",
-        //  $this->TABLE, $user_id, $search_str);
         $query = "SELECT `id` as note_id, title, content, data_create_at as date, tags FROM `" . $this->TABLE . "`"
         . " WHERE `user_id` = '" . $user_id . "' AND ( CONVERT(`title` USING utf8) LIKE '%" . $search_str . "%' OR CONVERT(`content` USING utf8) LIKE '%" . $search_str . "%' OR CONVERT(`tags` USING utf8) LIKE '%" . $search_str . "%') ";
         try {

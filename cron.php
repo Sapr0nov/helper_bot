@@ -26,20 +26,53 @@ $db = new DB($DB_SERVER, $DB_USER, $DB_PASSWORD, $DB_NAME);
 $notices = new Notice($db->MYSQLI); 
 $users = new User($db->MYSQLI);
 
-clearMessages($tgBot, $users);
-checkNotice(1);
+// work with date
+// получаем минуты прошедшие с 1700
+$timeNow = time();
+$past_min = round(time()/60);
+// Если интервал попадает в указанный в ини файле запускаем очистку
+if ($past_min % $CLEAR_INTERVAL == 0) {
+    clearMessages($tgBot, $users);
+}
+
+
+checkNotice($db, $tgBot, $users);
 
 function clearMessages($tgBot, $users) {
     $uids = $users->all_usersId();
     foreach ($uids as $uid) {
         if ($users->checkMsgs($uid['tid']) > 1) {
-            $users->msgs_clear($tgBot, $users, $uid['tid']);
+            $users->msgs_clear($tgBot, $uid['tid']);
         }
     }
     return;
 }
 
-function checkNotice($user_id) {
-    echo"TODO провекра и отправка напоминаний сообщения пользователяы";
+function checkNotice($db, $tgBot, $users) {
+    $endCheck = date('Y-m-d H:i:59', time());
+    $startCheck = date('Y-m-d H:i:59', time() - 3600);
+
+    $query = "SELECT `notices`.`id` as `id`, `users`.`tid` as `tid`, `notices`.`content` as `content` FROM `notices` LEFT JOIN `users` ON `users`.`id` = `notices`.`user_id` WHERE `notices`.`status` = 'active' AND `notices`.`date_remind` > '".$startCheck."' AND `notices`.`date_remind` < '".$endCheck."';";
+    try {
+        $result = $db->MYSQLI->query($query);
+    } catch (Exception $e) {
+        return false;
+    }
+    $rows = $result->fetch_all(MYSQLI_ASSOC);
+    $result->close();
+    foreach ($rows as $row) {
+        $reply = $tgBot->msg_to_tg($row['tid'], $row['content']);
+        save_reply($users, $reply);
+
+        $query = "UPDATE `notices` SET `status` = 'finished' WHERE `id` = '" . $row['id'] . "';";
+        $db->MYSQLI->query($query);
+    }
+    return true;
+}
+
+function save_reply($users, $reply) {
+    $replyTgBot = new TgBotClass('');
+    $replyTgBot->get_data($reply);
+    $users->msg_save($replyTgBot->MSG_INFO);
 }
 ?>

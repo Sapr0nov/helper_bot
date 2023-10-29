@@ -7,8 +7,9 @@ require_once($SITE_DIR . 'env.php');
 require_once($SITE_DIR . 'Classes/i18n.php');
 require_once($SITE_DIR . 'Classes/tg_Bot/tg.class.php');
 require_once($SITE_DIR . 'Classes/dbController/db.class.php');
-require_once($SITE_DIR . 'Classes/dbController/Note.php');
 require_once($SITE_DIR . 'Classes/dbController/User.php');
+require_once($SITE_DIR . 'Classes/dbController/Note.php');
+require_once($SITE_DIR . 'Classes/dbController/Notice.php');
 
 header('Content-Type: text/html; charset=utf-8'); // Выставляем кодировку UTF-8
 date_default_timezone_set('Europe/Moscow');
@@ -17,16 +18,19 @@ $tgBot = new TgBotClass($BOT_TOKEN);
 $db = new DB($DB_SERVER, $DB_USER, $DB_PASSWORD, $DB_NAME);
 
 // Start onece when installing bot (create tables and register webhook)
-$notes = new Note($db->MYSQLI);
 $users = new User($db->MYSQLI);
+$notes = new Note($db->MYSQLI);
+$notices = new Notice($db->MYSQLI);
+
 
 if ($INIT) {
     $url = $_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['SERVER_NAME'] . $_SERVER['REQUEST_URI'];
     $result = $tgBot->register_web_hook($url);
     $response = json_decode($result);
     echo '<p>' . $response->description . '</p>';
-    echo '<p>' . $notes->init() . '</p>';
     echo '<p>' . $users->init() . '</p>';
+    echo '<p>' . $notes->init() . '</p>';
+    echo '<p>' . $notices->init() . '</p>';
     return;
 }
 
@@ -57,23 +61,23 @@ if ($tgBot->MSG_INFO['command']['is_command'])  {
     }
 
     if ($tgBot->MSG_INFO['command']['command'] == 'add_note') {
-        $users->setStatus($uid,'add_note');
-        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите текст заметки: ',$keyboard['menu_search']);
+        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите текст заметки: ', $keyboard['menu_search']);
         save_reply($users, $reply);
+        $users->setStatus($uid,'add_note');
         return;
     }
 
     if ($tgBot->MSG_INFO['command']['command'] == 'add_notice') {
-        $users->setStatus($uid,'main_menu');
-        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите текст напоминания потом время: в разработке',$keyboard['menu_search']);
+        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите текст напоминания:', $keyboard['menu_search']);
         save_reply($users, $reply);
+        $users->setStatus($uid,'add_notice');
         return;
     }
 
     if ($tgBot->MSG_INFO['command']['command'] == 'clear') {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Очищаем историю. Подождите...', $keyboard['menu_search']);
         save_reply($users, $reply);
-        $users->msgs_clear($tgBot, $users, $tgBot->MSG_INFO['chat_id']);
+        $users->msgs_clear($tgBot, $tgBot->MSG_INFO['chat_id']);
         return;
     }
 
@@ -90,30 +94,49 @@ if ($status->value == 'search') {
 
 // если режим добавления заметки
 if ($status->value == 'add_note') {
-    $users->setStatus($uid, 'main_menu');
     $notes->add($uid, $tgBot->MSG_INFO['text_html']);
     $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Принято возвращаемся в главное меню: ', $keyboard['menu_search']);
     save_reply($users, $reply);
+    $users->setStatus($uid, 'main_menu');
+    return;
+}
+
+// если режим добавления напоминания
+if ($status->value == 'add_notice') {
+    $notices->presave($uid, $tgBot->MSG_INFO['text_html']);
+    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите время напоминания в формате YYYY-MM-DD HH-MM или одно число - через сколько минут: ', $keyboard['menu_search']);
+    save_reply($users, $reply);
+    $users->setStatus($uid, 'add_notice_time');
+    return;
+}
+
+// если режим добавления напоминания 2
+if ($status->value == 'add_notice_time') {
+    $notices->add($uid, $tgBot->MSG_INFO['text_html']);
+    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Сохранено, возвращаемся в главное меню', $keyboard['menu_search']);
+    save_reply($users, $reply);
+    $users->setStatus($uid, 'main_menu');
     return;
 }
 
 // Назначаем действия не по статусу а по тексту сообщения
 if ($tgBot->MSG_INFO['msg_type'] == 'message')  {
     if($tgBot->MSG_INFO['text'] == $MENU1['search']) {
-        $users->setStatus($uid, 'search');
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Укажите что ищем: ',$keyboard['menu_search']);
         save_reply($users, $reply);
+        $users->setStatus($uid, 'search');
         return;
     };
 
     if($tgBot->MSG_INFO['text'] == $MENU1['add_note']) {
-        $users->setStatus($uid,'add_note');
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Введите текст заметки: ',$keyboard['menu_search']);
         save_reply($users, $reply);
+        $users->setStatus($uid,'add_note');
         return;
     };
 
 }
+
 
 $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], ' Menu default действие: ', $keyboard['menu_search']);
 save_reply($users, $reply);
@@ -127,9 +150,9 @@ $tgBot->delete_msg_tg($tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id'
 
 function search($tgBot, $uid, $keyboard, $users, $notes, $search_text = '') {
     if ($search_text == '' && $tgBot->MSG_INFO['command']['args'] == '') {
-        $users->setStatus($uid, 'search');
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Укажите что ищем: ', $keyboard);
         save_reply($users, $reply);
+        $users->setStatus($uid, 'search');
         return;
     }
     if ($search_text == '') {

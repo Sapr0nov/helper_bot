@@ -231,7 +231,7 @@ Class User {
 /**
      *  return boolean
      */
-    function msgs_clear($tgBot, $users, $uid) {
+    function msgs_clear($tgBot, $uid) {
         $query = "SELECT `msg_id` FROM `" . $this->TABLE_MSGS . "` WHERE `chat_id` = '" . $uid . "'";        
         try {
             $result = $this->MYSQLI->query($query);
@@ -254,7 +254,7 @@ Class User {
         $this->MYSQLI->query($query); 
 
         // сохраняем свое приветственное сообщение
-        $this->save_reply($users, $reply);
+        $this->save_reply($this, $reply);
 
         return true;
     }
