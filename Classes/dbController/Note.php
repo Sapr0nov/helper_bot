@@ -64,9 +64,22 @@ Class Note {
         }
         $array = $result->fetch_all(MYSQLI_ASSOC);
         $result->close();
-        return $array;     
+        return $array;
     }
 
+    function delete($user_id, $id) {
+        $query = "DELETE FROM `" . $this->TABLE . "`"
+        . " WHERE `user_id` = " . $user_id . " AND id = " . $id . ";";
+        try {
+            $result = $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            $result = false;
+        }
+        if (!$result) {
+            return null;
+        }
+        return $result;
+    }
 }
 
 ?>

@@ -39,7 +39,7 @@ Class Notice {
     function presave($user_id, $text) {
         $title = '';
         $content = $text;
-        $query = "DELETE FROM `" . $this->TABLE . "` WHERE `status` = 'draft';";
+        $query = "DELETE FROM `" . $this->TABLE . "` WHERE `status` = 'draft' AND `user_id` = '" . $user_id . "';";
         try {
             $this->MYSQLI->query($query);
         } catch (Exception $e) {
@@ -56,13 +56,37 @@ Class Notice {
     }
 
     function add($user_id, $date) {
-        $date_str = (intval($date) == $date) ? date('Y-m-d H:i:00', time() + $date * 60) : $date;
-        $query = "UPDATE `" . $this->TABLE . "` SET `status` = 'active', `date_remind` = '" . $date_str . "' " .
+        $date_arr = explode("/",$date);
+        $interval = $date_arr[0];
+        $repeat = $date_arr[1] ?? 1; 
+        // читаем сохраненные до этого заголовок и содержимое напоминания
+        $query = "SELECT `title`, `content` FROM `" . $this->TABLE . "` " .
         " WHERE `user_id` = " . $user_id . " AND `status` = 'draft';";
         try {
-            $this->MYSQLI->query($query);
+            $result = $this->MYSQLI->query($query);
         } catch (Exception $e) {
             return false;
+        }
+        if($result){
+            $row = $result->fetch_object();
+            $title = $row->title;
+            $content = $row->content;
+            $result->close();
+        }else{
+            return false;
+        }
+        while ($repeat >= 1) {
+            $date_str = (intval($interval) == $interval) ? date('Y-m-d H:i:00', time() + $interval * $repeat * 60) : $interval;
+            $repeat--;
+            $query = "INSERT INTO `" . $this->TABLE . 
+            "` (user_id, title, content, date_remind, status) VALUES (" 
+            . $user_id . ", '" . $title . "', '" . $content . "' , '" . $date_str . "', 'active');";
+            
+            try {
+                $this->MYSQLI->query($query);
+            } catch (Exception $e) {
+                return false;
+            }    
         }
         return true;
     }

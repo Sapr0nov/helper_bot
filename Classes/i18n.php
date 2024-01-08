@@ -10,6 +10,8 @@ if ($LANG == 'ru') {
     $MENU1['add_note'] = "Добавить заметку";
     $MENU1['remove_note'] = "Удалить заметку";
 
+    $MENU_CALENDAR['show'] = "Планер";
+
     $RETURNTXT['selectAction'] = "Выберите действие:";
 }
 

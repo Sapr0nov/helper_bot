@@ -213,7 +213,6 @@ Class User {
      *  return int id message || null
      */
     function msg_save($MSG_INFO) {
-
         $query = "INSERT INTO `" . $this->TABLE_MSGS 
         . "` (`msg_id`,`user_id`,`chat_id`,`text`)" 
         . "VALUES(" . $MSG_INFO['message_id'] . ", '" . $MSG_INFO['user_id'] . "','" . $MSG_INFO['chat_id'] . "','" . $MSG_INFO['text'] . "' );";
@@ -228,7 +227,39 @@ Class User {
         }
         return $result;
     }
-/**
+    /**
+     *  return int id message || null
+     */
+    function msg_upd($MSG_INFO) {
+        $text = mysqli_real_escape_string($this->MYSQLI, $MSG_INFO['text']);
+        $query = "UPDATE `" . $this->TABLE_MSGS 
+        . "` SET `text` = '" . $text . "'" 
+        . " WHERE `msg_id` = '" .$MSG_INFO['message_id'] . "' AND `chat_id` = '" . $MSG_INFO['chat_id'] . "';";
+        try {
+            $this->MYSQLI->query($query);
+        }catch(Exception $e) {
+            return null;
+        }
+        return true;
+    }
+
+
+    function msg_find($MSG_INFO) {
+        $query = "SELECT `id`, `msg_id`, `user_id`, `chat_id`, `text` FROM `" . $this->TABLE_MSGS 
+        . "` WHERE `msg_id` = '" . $MSG_INFO['message_id'] . "' AND `chat_id` = '" . $MSG_INFO['chat_id'] . "' LIMIT 1;";
+        try {
+            $result = $this->MYSQLI->query($query);
+            $row = $result->fetch_object();
+            return $row;
+        }catch(Exception $e) {
+            return null;
+        }
+        if (!$result) {
+            return null;
+        }
+    }
+
+    /**
      *  return boolean
      */
     function msgs_clear($tgBot, $uid) {
@@ -279,7 +310,7 @@ Class User {
     /**
      * return int - amount messages of user
      */
-    function checkMsgs($tid) {
+    function count_user_msgs($tid) {
         $query = "SELECT COUNT(`id`) as messages FROM `" . $this->TABLE_MSGS . "` WHERE `user_id` = " . $tid . ";";        
         try {
             $result = $this->MYSQLI->query($query);
@@ -294,10 +325,16 @@ Class User {
 
     }
 
-    function save_reply($users, $reply) {
+    static function save_reply($users, $reply) {
         $replyTgBot = new TgBotClass('');
         $replyTgBot->get_data($reply);
-        $users->msg_save($replyTgBot->MSG_INFO);
+        $isMsg = $users->msg_find($replyTgBot->MSG_INFO);
+        if ($isMsg) {
+          $users->msg_upd($replyTgBot->MSG_INFO);
+        }else{
+            $users->msg_save($replyTgBot->MSG_INFO);
+        }
+        return $replyTgBot->MSG_INFO['message_id'];
     }
 }
 ?>
