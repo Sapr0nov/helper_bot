@@ -55,15 +55,15 @@ class TgBotClass
                 $responseArray = json_decode($response, true);
                 $filePath = $responseArray['result']['file_path'];
                 $url = 'https://api.telegram.org/file/bot' . $this->BOT_TOKEN . '/' . $filePath;
-                $file = dirname(dirname(__DIR__)) . '/files/' . $this->MSG_INFO['voice']['file_id'] . '.ogg';
-                file_put_contents($file, file_get_contents($url));
+                $file = dirname(dirname(__DIR__)) . '/files/' . $this->MSG_INFO['voice']['file_id'] . '.oga';
+                copy($url, $file);
                 $fileSystemIterator = new FilesystemIterator(dirname(dirname(__DIR__)) . '/files');
                 $now = time();
                 foreach ($fileSystemIterator as $file) {
                     if ($now - $file->getCTime() >= 60 * 60 * 2) // 2 часа 
                         unlink('files/'.$file->getFilename());
                 }
-                $this->MSG_INFO['voice']['rel_url'] = '/files/' . $this->MSG_INFO['voice']['file_id'] . '.ogg';
+                $this->MSG_INFO['voice']['rel_url'] = '/files/' . $this->MSG_INFO['voice']['file_id'] . '.oga';
             }else{
                 $this->MSG_INFO['msg_type'] = 'message';
             }
@@ -120,7 +120,7 @@ class TgBotClass
 
 
     // функция отправки сообщени от бота в диалог с юзером
-    function msg_to_tg($chat_id, $text, $reply_markup = '', $replyID = false, $silent = false) {
+    function msg_to_tg($chat_id, $text, $reply_markup = '', $reply_id = false, $silent = false) {
 
         $ch = curl_init();
         $ch_post = [
@@ -133,7 +133,7 @@ class TgBotClass
                 'parse_mode' => 'HTML',
                 'text' => $text,
                 'reply_markup' => $reply_markup,
-                'reply_to_message_id' => $replyID,
+                'reply_to_message_id' => $reply_id,
                 'disable_notification' => $silent,
             ]
         ];

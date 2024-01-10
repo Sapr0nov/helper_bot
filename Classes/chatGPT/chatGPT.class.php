@@ -41,14 +41,13 @@ class ChatGPT
         curl_close($curl);
         return $response;
     }
-    public function ask($message) {
+    public function ask($message, $history = []) {
         $url = $this->BASE_URL . $this->CHAT_END_POINT;
         if ($this->MODEL == 'gpt-3.5-turbo') {
+            array_push($history, array('role' => 'user', 'content' => $message) );
             $data = array(
                 'model' => $this->MODEL,
-                'messages' => array(
-                    array('role' => 'user', 'content' => $message),
-                    ),
+                'messages' => $history,
                 );
             $content_type = "application/json";
         }

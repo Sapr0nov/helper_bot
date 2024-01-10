@@ -27,6 +27,9 @@ Class User {
     
     function __construct($mysqli) {
         $this->MYSQLI = $mysqli;
+        $sessionTime = 3600;
+        $query = "SET SESSION wait_timeout = $sessionTime";
+        mysqli_query($this->MYSQLI, $query);
     }
 
     /**
@@ -212,10 +215,10 @@ Class User {
     /**
      *  return int id message || null
      */
-    function msg_save($MSG_INFO) {
+    private function msg_save($chat_id, $user_id, $message_id, $text) {
         $query = "INSERT INTO `" . $this->TABLE_MSGS 
         . "` (`msg_id`,`user_id`,`chat_id`,`text`)" 
-        . "VALUES(" . $MSG_INFO['message_id'] . ", '" . $MSG_INFO['user_id'] . "','" . $MSG_INFO['chat_id'] . "','" . $MSG_INFO['text'] . "' );";
+        . "VALUES(" . $message_id . ", '" . $user_id . "','" . $chat_id . "','" . $text . "' );";
         try {
             $this->MYSQLI->query($query);
             $result = $this->MYSQLI->insert_id;
@@ -230,13 +233,11 @@ Class User {
     /**
      *  return int id message || null
      */
-    function msg_upd($MSG_INFO) {
-        $text = mysqli_real_escape_string($this->MYSQLI, $MSG_INFO['text']);
-        $query = "UPDATE `" . $this->TABLE_MSGS 
-        . "` SET `text` = '" . $text . "'" 
-        . " WHERE `msg_id` = '" .$MSG_INFO['message_id'] . "' AND `chat_id` = '" . $MSG_INFO['chat_id'] . "';";
+    private function msg_upd($chat_id, $message_id, $text) {
         try {
-            $this->MYSQLI->query($query);
+            $stmt = $this->MYSQLI->prepare("UPDATE ".$this->TABLE_MSGS." SET text = ? WHERE msg_id = ? AND chat_id = ?");
+            $stmt->bind_param("sss", $text, $message_id, $chat_id);
+            $stmt->execute();
         }catch(Exception $e) {
             return null;
         }
@@ -244,18 +245,18 @@ Class User {
     }
 
 
-    function msg_find($MSG_INFO) {
+    function msg_find($chat_id, $message_id) {
         $query = "SELECT `id`, `msg_id`, `user_id`, `chat_id`, `text` FROM `" . $this->TABLE_MSGS 
-        . "` WHERE `msg_id` = '" . $MSG_INFO['message_id'] . "' AND `chat_id` = '" . $MSG_INFO['chat_id'] . "' LIMIT 1;";
+        . "` WHERE `msg_id` = '" . $message_id . "' AND `chat_id` = '" . $chat_id . "' LIMIT 1;";
         try {
             $result = $this->MYSQLI->query($query);
             $row = $result->fetch_object();
             return $row;
         }catch(Exception $e) {
-            return null;
+            return $e->getMessage();
         }
         if (!$result) {
-            return null;
+            return $query;
         }
     }
 
@@ -328,11 +329,12 @@ Class User {
     static function save_reply($users, $reply) {
         $replyTgBot = new TgBotClass('');
         $replyTgBot->get_data($reply);
-        $isMsg = $users->msg_find($replyTgBot->MSG_INFO);
+        $text = preg_replace("/[^а-яА-Яa-zA-Z0-9\s\-\p{P}]/u", "", $replyTgBot->MSG_INFO['text']);
+        $isMsg = $users->msg_find($replyTgBot->MSG_INFO['chat_id'], $replyTgBot->MSG_INFO['message_id']);
         if ($isMsg) {
-          $users->msg_upd($replyTgBot->MSG_INFO);
+            $users->msg_upd($replyTgBot->MSG_INFO['chat_id'], $replyTgBot->MSG_INFO['message_id'], $text);
         }else{
-            $users->msg_save($replyTgBot->MSG_INFO);
+            $users->msg_save($replyTgBot->MSG_INFO['chat_id'], $replyTgBot->MSG_INFO['user_id'], $replyTgBot->MSG_INFO['message_id'], $text);
         }
         return $replyTgBot->MSG_INFO['message_id'];
     }

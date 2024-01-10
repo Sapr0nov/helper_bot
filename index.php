@@ -2,6 +2,7 @@
 /**
 *   tg bot
 **/
+
 $SITE_DIR = dirname(__FILE__) . '/';
 require_once($SITE_DIR . 'env.php');
 require_once($SITE_DIR . 'Classes/i18n.php');
@@ -47,12 +48,8 @@ if ($INIT) {
 }
 
 // Bot Logic
-$dataInput = file_get_contents('php://input'); // весь ввод перенаправляем в $data
-$data = json_decode($dataInput, true); // декодируем json-закодированные-текстовые данные в PHP-массив
+$dataInput = file_get_contents('php://input'); // весь ввод перенаправляем в $dataInput
 $tgBot->get_data($dataInput);
-
-$users->msg_save($tgBot->MSG_INFO);
-
 
 $keyboard = array(
     'menu_search' => $tgBot->keyboard([[$MENU1['search'], $MENU1['add_note'], $MENU_CALENDAR['show']]] ),
@@ -73,9 +70,7 @@ $status = $users->getStatus($uid);
 if ($tgBot->MSG_INFO['msg_type'] == 'callback') {
     if (stripos($tgBot->MSG_INFO['text'],'txt2speach') !== false) {
         [$command, $arg] = explode(' ', $tgBot->MSG_INFO['text']);
-        $MSGINFO = $tgBot->MSG_INFO;
-        $MSGINFO['message_id'] = $arg;
-        $msg = $users->msg_find($MSGINFO);
+        $msg = $users->msg_find($tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id']);
         $options = new stdClass;
         $options->token = $GPT_TOKEN;
         $options->model = 'tts-1';
@@ -93,6 +88,7 @@ if ($tgBot->MSG_INFO['msg_type'] == 'callback') {
         User::save_reply($users, $reply);
         return;
     }
+
     if (stripos($tgBot->MSG_INFO['text'],'note_delete') !== false) {
         [$command, $arg] = explode(' ', $tgBot->MSG_INFO['text']);
         $result = $notes->delete($uid, $arg);
@@ -102,10 +98,15 @@ if ($tgBot->MSG_INFO['msg_type'] == 'callback') {
         return;
     }
 
-    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'callback pressed: ' . $tgBot->MSG_INFO['text'], $keyboard['menu_search']);
-    User::save_reply($users, $reply);
     return;
 }
+
+// Если новое сообщение сохраняем - старое - выходим из скрипта (нужно если скрипт отрабатывает больше минуты) 
+if (!$users->msg_find($tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id'])) {
+    $users->save_reply($users, $dataInput);
+}else{
+    return;
+};
 
 // Если введена команда
 if ($tgBot->MSG_INFO['command']['is_command'])  {
@@ -140,7 +141,7 @@ if ($tgBot->MSG_INFO['command']['is_command'])  {
     }
 
     if ($tgBot->MSG_INFO['command']['command'] == 'clear') {
-        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Очищаем историю. Подождите..'. json_encode($tgBot->MSG_INFO), $keyboard['menu_search']);
+        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Очищаем историю. Подождите..', $keyboard['menu_search']);
         
         User::save_reply($users, $reply);
         $users->msgs_clear($tgBot, $tgBot->MSG_INFO['chat_id']);
@@ -217,7 +218,13 @@ if ($tgBot->MSG_INFO['msg_type'] == 'voice') {
     $options->model = 'whisper-1';
     $options->endPoint = '/audio/transcriptions';
     $GPT = new ChatGPT($options);
-    transcribeGPT($tgBot, $GPT, $users, $tgBot->MSG_INFO['voice']['rel_url']);
+    try {
+        transcribeGPT($tgBot, $GPT, $users, $tgBot->MSG_INFO['voice']['rel_url']);
+    }catch(e){
+        $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Ошибка обработки сообщения ');
+        User::save_reply($users, $reply);
+        return;
+    }
     return;
 }
 
@@ -232,31 +239,32 @@ return;
  /**
   *  functions
   */
+  
   function searchGPT($tgBot, $GPT, $users, $question) {
+    global $start;
     if ($question == '') {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Вы не задали вопрос');
         User::save_reply($users, $reply);
         return;
     }
 
-    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "⌛ loading...");
-    $msgID = User::save_reply($users, $reply);
-    
+    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "⌛ loading...", reply_id: $tgBot->MSG_INFO['message_id']);
+    $msg_id = User::save_reply($users, $reply);
+
     $response = $GPT->ask($question);
-    $answer = json_decode($response);
-    $reply = $tgBot->update_msg_tg($msgID, $tgBot->MSG_INFO['chat_id'], 'finished');
-    if ($answer) {
-        $answ = $answer->choices[0]->message->content;
+    $answerObj = json_decode($response);
+    
+    if ($answerObj) {
+        $answer = $answerObj->choices[0]->message->content;
         $regEx = '/```(\w+)(.+?)```/is';
         $regEx2 = '/```(.+?)```/is';
-        $answ = htmlspecialchars($answ, ENT_QUOTES);
-        $answ = preg_replace($regEx, '<pre><code language="$1">$2</code></pre>', $answ);
-        $answ = preg_replace($regEx2, '<code>$1</code>', $answ);
-
+        $answer = htmlspecialchars($answer, ENT_QUOTES);
+        $answer = preg_replace($regEx, '<pre><code language="$1">$2</code></pre>', $answer);
+        $answer = preg_replace($regEx2, '<code>$1</code>', $answer);
     }else {
-        $answ = "не найдено";
+        $answer = "не найдено";
     }
-    $reply = $tgBot->update_msg_tg($msgID, $tgBot->MSG_INFO['chat_id'], $answ, $tgBot->inline_keyboard([[ [ "text"=> "озвучить", "callback_data"=> "txt2speach " . $msgID ], ]]) );
+    $reply = $tgBot->update_msg_tg($msg_id, $tgBot->MSG_INFO['chat_id'], $answer, $tgBot->inline_keyboard([[ [ "text"=> "озвучить", "callback_data"=> "txt2speach " . $msg_id ], ]]) );
     User::save_reply($users, $reply);
     return;
 }
@@ -268,27 +276,40 @@ function transcribeGPT($tgBot, $GPT, $users, $file) {
         return;
     }
 
-    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "⌛ loading...", replyID: $tgBot->MSG_INFO['message_id']);
-    $msgID = User::save_reply($users, $reply);
-
-    $response = $GPT->transcribe(__DIR__.$file);
-    $answer = json_decode($response);
-    $reply = $tgBot->update_msg_tg($msgID, $tgBot->MSG_INFO['chat_id'], 'finished');
-    if ($answer) {
-        $answ = $answer->text;
-    }else {
-        $answ = "не найдено";
+    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "🦻 loading...", reply_id: $tgBot->MSG_INFO['message_id']);
+    $msg_id = User::save_reply($users, $reply);
+    try {
+        $response = $GPT->transcribe(__DIR__.$file);
+        $answerObj = json_decode($response);
+        $answer = ($answerObj) ? $answerObj->text : 'не найдено';
+    }
+    catch(Exception $e){
+        $err = $e->getMessage();
+        $reply = $tgBot->update_msg_tg($msg_id, $tgBot->MSG_INFO['chat_id'], "Ошибка:" . json_encode($err));
+        User::save_reply($users, $reply);
+        return;
     }
 
-    $reply = $tgBot->update_msg_tg($msgID, $tgBot->MSG_INFO['chat_id'], $answ);
+    $reply = $tgBot->update_msg_tg($msg_id, $tgBot->MSG_INFO['chat_id'], $answer);
     User::save_reply($users, $reply);
+    // начинаем работу с новым сообщением
+    $tgBot->get_data($reply);
 
+    
     $GPT->MODEL = 'gpt-3.5-turbo';
     $GPT->CHAT_END_POINT = '/chat/completions';
-    searchGPT($tgBot, $GPT, $users, $answ);
+    try {
+        searchGPT($tgBot, $GPT, $users, $answer);
+    }catch(e) {
+        $err = "ошибка транскрибации";
+        $reply = $tgBot->update_msg_tg($msg_id, $tgBot->MSG_INFO['chat_id'], $err);
+        User::save_reply($users, $reply);
+        return;
+    }
 
     return;
 }
+
 function speachGPT($tgBot, $GPT, $users, $text) {
     if ($text == '') {
         $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], 'Что-то пошло не так.. Не вижу текста');
@@ -296,19 +317,19 @@ function speachGPT($tgBot, $GPT, $users, $text) {
         return;
     }
 
-    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "⌛ loading...", replyID: $tgBot->MSG_INFO['message_id']);
-    $msgID = User::save_reply($users, $reply);
+    $reply = $tgBot->msg_to_tg($tgBot->MSG_INFO['chat_id'], "🗣 loading...", reply_id: $tgBot->MSG_INFO['message_id']);
+    $msg_id = User::save_reply($users, $reply);
     $response = $GPT->ask($text);
 
-    $reply = $tgBot->delete_msg_tg($tgBot->MSG_INFO['chat_id'],$msgID);
+    $reply = $tgBot->delete_msg_tg($tgBot->MSG_INFO['chat_id'],$msg_id);
 
     if ($response !== false) {
-        $savePath = __DIR__.'/files/speach'.$msgID.'.mp3';
+        $savePath = __DIR__.'/files/speach'.$msg_id.'.mp3';
         file_put_contents($savePath, $response);
-        $file = "https://stacksite.ru/assets/projects3/tg_helper/files/speach".$msgID.".mp3";
-        $reply = $tgBot->send_audio_tg($msgID, $tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id'], $file, "Сообщение озвучено");
+        $file = "https://stacksite.ru/assets/projects3/tg_helper/files/speach".$msg_id.".mp3";
+        $reply = $tgBot->send_audio_tg($msg_id, $tgBot->MSG_INFO['chat_id'], $tgBot->MSG_INFO['message_id'], $file, "Сообщение озвучено");
     }else{
-        $reply = $tgBot->update_msg_tg($msgID, $tgBot->MSG_INFO['chat_id'], 'не удалось озвучить файл');
+        $reply = $tgBot->update_msg_tg($msg_id, $tgBot->MSG_INFO['chat_id'], 'не удалось озвучить файл');
     }
      User::save_reply($users, $reply);
     return;
